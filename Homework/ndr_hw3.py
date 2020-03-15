@@ -119,9 +119,19 @@ def train_hyperparams(data):
                 (aprf1[2] + aprf2[2] + aprf3[2] + aprf4[2]) / 4,
                 (aprf1[3] + aprf2[3] + aprf3[3] + aprf4[3]) / 4
             )
-            # print(metrics.classification_report(y_fold1,
-            #       model.predict(X_fold1), target_names=labels))
-    return scores
+
+    totals = dict.fromkeys(scores.keys(), 0)
+    best = ((0, 0), 0)
+    for r in totals:
+        totals[r] = sum(scores[r])
+        if totals[r] > best[1]:
+            best = (r, totals[r])
+    return (scores, best)
+
+
+def final_test(model, X, y):
+
+    print('buns')
 
 
 def print_scores(dic):
@@ -136,5 +146,18 @@ if __name__ == "__main__":
     base_directory = "./animals/"
     data = build_database(base_directory)
     split = fold_and_test(data)
-    scores = train_hyperparams(split)
+    scores, best = train_hyperparams(split)
+    print(f"The best scores overall were produced by {best[0]}:")
     print_scores(scores)
+
+    # \\ And now, the piece de resistance:
+    the_X_train = np.vstack((split[0][0], split[1][0], split[2][0], split[3][0]))
+    the_y_train = np.vstack((split[0][1], split[1][1], split[2][1], split[3][1])).ravel()
+    the_X_test = split[4][0]
+    the_y_test = split[4][1].ravel()
+    the_model = KNeighborsClassifier(n_neighbors=best[0][0], p=best[0][1])
+    the_model.fit(the_X_train, the_y_train)
+    the_predictions = the_model.predict(the_X_test)
+    print("Classification Report of Final Results:")
+    print(metrics.classification_report(the_y_test, the_predictions,
+          target_names=labels))
