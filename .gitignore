@@ -130,3 +130,4 @@ dmypy.json
 
 # Chonky local files
 Homework/animals/
+Homework/midterm/*.csv
