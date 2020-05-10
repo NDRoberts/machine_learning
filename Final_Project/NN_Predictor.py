@@ -68,8 +68,8 @@ class NN_Predictor:
                 [n for n in range(10, 101) if n % 10 == 0],
                 [n for n in range(10, 101) if n % 10 == 0]
             ),
-            "activation": ["identity", "logistic", "tanh", "relu"],
-            "solver": ["lbfgs", "sgd", "adam"],
+            "activation": ["logistic", "tanh", "relu"],
+            "solver": ["sgd", "adam"],
             "alpha": [0.005, 0.001, 0.0001]
         }
         mlp = MLPRegressor(max_iter=1000)
