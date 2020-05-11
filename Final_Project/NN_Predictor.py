@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score, make_scorer
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.neural_network import MLPRegressor
@@ -72,10 +73,44 @@ class NN_Predictor:
             "solver": ["sgd", "adam"],
             "alpha": [0.005, 0.001, 0.0001]
         }
-        mlp = MLPRegressor(max_iter=1000)
-        reg = GridSearchCV(estimator=mlp, param_grid=mlpParams, n_jobs=-1, scoring=make_scorer(mean_squared_error))
-        reg.fit(X=self.X, y=np.ravel(self.y))
-        print(reg.best_params_)
+        self.model = MLPRegressor(hidden_layer_sizes=(15, 12, 9, 6, 3),
+                           activation="relu",
+                           solver='adam',
+                           alpha=0.001,
+                           learning_rate='adaptive',
+                           max_iter=10000,
+                           shuffle=True, )
+        # reg = GridSearchCV(estimator=mlp, param_grid=mlpParams, n_jobs=-1, scoring=make_scorer(mean_squared_error))
+        # reg.fit(X=self.X, y=np.ravel(self.y))
+        # print(reg.best_params_)
+        # self.model.fit(self.X, np.ravel(self.y))
+        # print("Model complete.")
+        # print(self.model.coefs_)
+        # self.predictions = self.model.predict(self.X)
+        # print("MSE =", mean_squared_error(self.y, self.predictions))
+        # print("R^2 =", r2_score(self.y, self.predictions))
+        total_error = 0
+        rem_plts = [231, 232, 233, 234, 235, 236]
+        # fig, axs = plt.subplots(2, 3, sharex=True, sharey=True)
+        for fold in self.folded_data:
+            print(fold["test_y"].shape)
+            self.model.fit(fold["train_X"], np.ravel(fold["train_y"]))
+            pred = self.model.predict(fold["test_X"])
+            print(pred.shape)
+            plt.subplot(rem_plts[0])
+            plt.plot(fold["test_X"], fold["test_y"], 'bs', alpha=0.5)
+            plt.plot(fold["test_X"], pred, 'go', alpha=0.5)
+            rem_plts = rem_plts[1:]
+            mse = mean_squared_error(fold["test_y"], pred)
+            plt.text(0, 0, s=f"MSE = {mse}")
+            # print(f"MSE for fold {ff}:", mse)
+            total_error += mse
+        # plt.subplot(233)
+        # plt.plot(self.X, self.y, 'ro', alpha = 0.25)
+        # plt.plot(self.X, avg_preds, 'g^', alpha = 0.5)
+        plt.show()
+        print("Average MSE:", total_error / 5)
+            
 
 
 if __name__ == "__main__":
