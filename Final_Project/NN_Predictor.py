@@ -26,6 +26,8 @@ class NN_Predictor:
     folded_data = []
 
     def __init__(self, data=None):
+        ''' Initialise model object by loading, cropping,
+            and splitting the specified dataset '''
         if not data:
             raise Exception("A data set must be supplied to create"
                             + "a Predictor.")
@@ -39,6 +41,7 @@ class NN_Predictor:
         self.split_data()
 
     def split_data(self, numfolds=5):
+        ''' Divide dataset into folds for testing & cross-validation '''
         self.kfolds = KFold(n_splits=numfolds, shuffle=True)
         self.X = self.data.iloc[:, :-1]
         self.y = self.data.iloc[:, -1:]
@@ -51,7 +54,8 @@ class NN_Predictor:
         # print(self.folded_data[0]["train_X"])
 
     def crop_and_regularize(self):
-
+        ''' Exclude data irrelevant to this operation; also create
+            standardized versions of the data I guess?  Not using them yet. '''
         drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
                      "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
                      "invalcode"]
@@ -65,6 +69,7 @@ class NN_Predictor:
         self.std_data = pd.DataFrame(scaler.transform(self.data))
 
     def build(self):
+        ''' Construct the NN model '''
         # mlpParams = {
         #     "hidden_layer_sizes": vec_combine(
         #         [n for n in range(10, 101) if n % 10 == 0],
@@ -95,6 +100,7 @@ class NN_Predictor:
         # print("R^2 =", r2_score(self.y, self.predictions))
 
     def plotz(self):
+        ''' Make and plot predictions '''
         total_error = 0
         rem_plts = [231, 232, 233, 234, 235, 236]
         # fig, axs = plt.subplots(2, 3, sharex=True, sharey=True)
