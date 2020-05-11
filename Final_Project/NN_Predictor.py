@@ -103,17 +103,15 @@ class NN_Predictor:
         ''' Make and plot predictions '''
         total_error = 0
         rem_plts = [231, 232, 233, 234, 235, 236]
-        # fig, axs = plt.subplots(2, 3, sharex=True, sharey=True)
         for fold in self.folded_data:
             self.model.fit(fold["train_X"], np.ravel(fold["train_y"]))
             pred = self.model.predict(fold["test_X"])
             plt.subplot(rem_plts[0])
-            plt.plot(fold["test_X"], fold["test_y"], 'bs', alpha=0.5)
-            plt.plot(fold["test_X"], pred, 'go', alpha=0.5)
+            plt.plot(fold["test_X"], fold["test_y"], 'bs', alpha=0.3)
+            plt.plot(fold["test_X"], pred, 'go', alpha=0.3)
             rem_plts = rem_plts[1:]
             mse = mean_squared_error(fold["test_y"], pred)
             plt.text(0, 0, s=f"MSE = {mse}")
-            # print(f"MSE for fold {ff}:", mse)
             total_error += mse
         # plt.subplot(233)
         # plt.plot(self.X, self.y, 'ro', alpha = 0.25)

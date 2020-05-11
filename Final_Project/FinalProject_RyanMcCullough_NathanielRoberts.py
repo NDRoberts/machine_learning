@@ -12,7 +12,8 @@ import keras
 from keras.models import Sequential
 from keras.layers import Dense
 # from sklearn import test_train_split
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
+from matplotlib import pyplot as plt
 
 
 def loadData():
@@ -25,18 +26,24 @@ def loadData():
     return data
 
 
-def splitData(data):
-    kfolds = KFold(n_splits=5, shuffle=True)
-    folded_data = []
+def splitData(data, fold=0):
     X = data.iloc[:, :-1]
     y = data.iloc[:, -1:]
-    for train_inds, test_inds in kfolds.split(X):
-        this_fold = {"train_X": X.iloc[train_inds, :],
-                        "train_y": y.iloc[train_inds, :],
-                        "test_X": X.iloc[test_inds, :],
-                        "test_y": y.iloc[test_inds, :]}
-        folded_data.append(this_fold)
-    return folded_data
+    if fold > 0:
+        kfolds = KFold(n_splits=fold, shuffle=True)
+        folded_data = []
+        for train_inds, test_inds in kfolds.split(X):
+            this_fold = {"train_X": X.iloc[train_inds, :],
+                            "train_y": y.iloc[train_inds, :],
+                            "test_X": X.iloc[test_inds, :],
+                            "test_y": y.iloc[test_inds, :]}
+            folded_data.append(this_fold)
+        return folded_data
+    train_X, test_X, train_y, test_y = train_test_split(X, y, train_size=0.8)
+    train_X, validate_X, train_y, validate_y = train_test_split(train_X,
+                                                                train_Y,
+                                                                train_size=0.75)
+    return (test_X, train_X, validate_X, train_y, test_y, validate_y)
 
 
 def trainModel(data):
@@ -61,6 +68,11 @@ def predictions(tModel, xTest, yTest):
     for i in range(len(yPred)):
         print("Actual value: " + yTest[i] + "\n")
         print("Predicted value: " + yPred[i] + "\n")
+
+def plotit(xdata, *ydata):
+    for bit in ydata:
+        plt.plot(xdata, bit, alpha=0.3)
+    plt.show()
 
 
 if __name__ == '__main__':
