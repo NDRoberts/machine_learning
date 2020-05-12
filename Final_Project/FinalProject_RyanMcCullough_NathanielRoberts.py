@@ -11,12 +11,12 @@ import pandas as pd
 import keras
 from keras.models import Sequential
 from keras.layers import Dense
-# from sklearn import test_train_split
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
 
 
 def loadData():
+    ''' Read a .CSV file into memory and return it as a NumPy array '''
     cwpath = "/ne15.csv"
     dpath = os.getcwd() + cwpath
 
@@ -27,6 +27,8 @@ def loadData():
 
 
 def splitData(data, fold=0):
+    ''' Divide data into Testing, Validation, and Training segments or,
+        if a fold value is provided, into k cross-validation folds '''
     X = data.iloc[:, :-1]
     y = data.iloc[:, -1:]
     if fold > 0:
@@ -41,12 +43,13 @@ def splitData(data, fold=0):
         return folded_data
     train_X, test_X, train_y, test_y = train_test_split(X, y, train_size=0.8)
     train_X, validate_X, train_y, validate_y = train_test_split(train_X,
-                                                                train_Y,
+                                                                train_y,
                                                                 train_size=0.75)
     return (test_X, train_X, validate_X, train_y, test_y, validate_y)
 
 
 def trainModel(data):
+    ''' Construct and train the artificial neural network model '''
     model = Sequential()
     model.add(Dense(15, input_dim=3, activation='relu'))
     model.add(Dense(12, activation='relu'))
@@ -64,12 +67,14 @@ def trainModel(data):
 
 
 def predictions(tModel, xTest, yTest):
+    ''' Make and print predictions using the trained model and test data '''
     yPred = np.array(tModel.predict(xTest))
     for i in range(len(yPred)):
         print("Actual value: " + yTest[i] + "\n")
         print("Predicted value: " + yPred[i] + "\n")
 
 def plotit(xdata, *ydata):
+    ''' Shorthand method to plot multiple lines with shared X data '''
     for bit in ydata:
         plt.plot(xdata, bit, alpha=0.3)
     plt.show()
