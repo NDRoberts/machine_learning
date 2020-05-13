@@ -8,11 +8,31 @@ Created on Fri May  1 13:49:32 2020
 import os
 import numpy as np
 import pandas as pd
-import keras
-from keras.models import Sequential
-from keras.layers import Dense
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+import kerastuner as kt
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
+
+
+class DiaperModel(kt.HyperModel):
+
+    def __init__(self):
+        pass
+
+    def build(self, hyparams):
+        model = tf.keras.Sequential()
+        for k in range(hyparams.Int('layers', 2, 10)):
+            model.add(tf.keras.layers.Dense(
+                units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
+                activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])))
+        model.compile(
+            optimizer='adadelta',
+            loss='mean_squared_error',
+            metrics='mean_squared_error')
+        return model
 
 
 def loadData():
@@ -98,6 +118,37 @@ def trainModel(data):
     return (model, xTest, yTest, yPred)
 
 
+# def hyper_build(hyparams):
+#     hmodel = keras.Sequential(name='TunedModel')
+#     for k in range(hyparams.Int('layers', 2, 10)):
+#         hmodel.add(keras.layers.Dense(
+#             units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
+#             activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])
+#         ))
+#     hmodel.compile(
+#         optimizer='adadelta',
+#         loss='mean_squared_error',
+#         metrics='mean_squared_error'
+#     )
+#     return hmodel
+
+
+def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
+    model = DiaperModel()
+    tuner = kt.tuners.Hyperband(
+        hypermodel=model,
+        objective='mean_squared_error',
+        max_epochs=10,
+        factor=2,
+        hyperband_iterations=3,
+        hyperparameters=hyparams,
+        project_name='Final'
+    )
+    tuner.search(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
+    tuner.results_summary()
+    return tuner.get_best_models()[0]
+
+
 def fullPlot(X_data, y_true, y_pred):
     base = ['rh', 'gh', 'bh']
     elem = ['NO3', 'SO4', 'Cl']
@@ -112,11 +163,21 @@ def fullPlot(X_data, y_true, y_pred):
         plt.plot(X_data[:, n], y_pred, 'xk', alpha=0.3,
                  label=f"NH4 relative to {elem[n]} (predicted)")
         plt.legend()
-    plt.savefig("./results.png", format='png')
+    # plt.savefig("./results.png", format='png')
     plt.show()
 
 
 if __name__ == '__main__':
     data = cropData(loadData())
-    (trainedModel, xTest, yTest, yPred) = trainModel(data)
-    fullPlot(xTest, yTest, yPred)
+    xTest, xTrain, xVal, yTrain, yTest, yVal = splitData(data)
+    # (trainedModel, xTest, yTest, yPred) = trainModel(data)
+    # fullPlot(xTest, yTest, yPred)
+    hyparams = kt.HyperParameters()
+    hmodel = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
+    hmodel.fit(xTrain, yTrain)
+    hyperPreds = hmodel.predict(xTest)
+    print("The predictions coming back have shape", hyperPreds.shape)
+    heval = hmodel.evaluate(xTest, yTest, batch_size=128)
+    print("Tuned mean squared error:", heval)
+    print(hmodel.summary())
+    fullPlot(xTest, yTest, hyperPreds)
