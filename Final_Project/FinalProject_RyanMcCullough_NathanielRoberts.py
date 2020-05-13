@@ -91,12 +91,12 @@ def trainModel(data):
     (xTest, xTrain, xVal, yTrain, yTest, yVal) = splitData(data)
 
     model = Sequential()
-    model.add(Dense(15, activation='relu', input_shape=(3,)))
-    model.add(Dense(12, activation='relu'))
-    model.add(Dense(9, activation='relu'))
-    model.add(Dense(6, activation='relu'))
-    model.add(Dense(3, activation='relu'))
-    model.add(Dense(1, activation='relu'))
+    model.add(Dense(15, activation='linear', input_shape=(3,)))
+    model.add(Dense(12, activation='linear'))
+    model.add(Dense(9, activation='linear'))
+    model.add(Dense(6, activation='linear'))
+    model.add(Dense(3, activation='linear'))
+    model.add(Dense(1, activation='linear'))
     model.compile(optimizer='adagrad', loss='mean_squared_logarithmic_error')
     
     keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
