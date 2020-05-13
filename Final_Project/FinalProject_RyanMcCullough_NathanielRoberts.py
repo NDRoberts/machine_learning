@@ -41,7 +41,7 @@ def cropData(data):
 def splitData(data, fold=0):
     ''' Divide data into Testing, Validation, and Training segments or,
         if a fold value is provided, into k cross-validation folds '''
-    data = cropData(data)
+    # data = cropData(data)
     data = np.array(data)
     X = data[:, :-1]
     y = data[:, -1:]
@@ -69,12 +69,12 @@ def trainModel(data):
     (xTest, xTrain, xVal, yTrain, yTest, yVal) = splitData(data)
 
     model = Sequential()
-    model.add(Dense(15, activation='linear', input_shape=(3,)))
-    model.add(Dense(12, activation='linear'))
-    model.add(Dense(9, activation='linear'))
-    model.add(Dense(6, activation='linear'))
-    model.add(Dense(3, activation='linear'))
-    model.add(Dense(1, activation='linear'))
+    model.add(Dense(15, activation='relu', input_shape=(3,)))
+    model.add(Dense(12, activation='relu'))
+    model.add(Dense(9, activation='relu'))
+    model.add(Dense(6, activation='relu'))
+    model.add(Dense(3, activation='relu'))
+    model.add(Dense(1, activation='relu'))
     model.compile(optimizer='adagrad', loss='mean_squared_logarithmic_error')
     
     keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
@@ -82,7 +82,8 @@ def trainModel(data):
     history = model.fit(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
     
     yPred = np.array(model.predict(xTest))
-
+    eval = model.evaluate(xTest, yTest, batch_size=128)
+    print("Overall loss:", eval)
     print(model.summary())
     
     '''
@@ -94,13 +95,13 @@ def trainModel(data):
         print(yPred[i])
         print("\n")'''
 
-    return (history, xTest, yTest, yPred)
+    return (model, xTest, yTest, yPred)
 
 
 def fullPlot(X_data, y_true, y_pred):
     base = ['rh', 'gh', 'bh']
     elem = ['NO3', 'SO4', 'Cl']
-    plt.figure(figsize=(16, 9))
+    plt.figure(figsize=(14, 6))
     plt.suptitle("NH4 Concentrations: Observations v. Predictions")
     for n in range(3):
         ploc = 130 + (n + 1)
@@ -116,6 +117,6 @@ def fullPlot(X_data, y_true, y_pred):
 
 
 if __name__ == '__main__':
-    data = loadData()
+    data = cropData(loadData())
     (trainedModel, xTest, yTest, yPred) = trainModel(data)
     fullPlot(xTest, yTest, yPred)
