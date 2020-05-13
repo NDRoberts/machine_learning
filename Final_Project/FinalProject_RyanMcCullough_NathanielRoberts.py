@@ -5,6 +5,28 @@ Created on Fri May  1 13:49:32 2020
 
 @author: Ryan McCullough, Nathaniel Roberts
 """
+# General Attributions:
+# Numeric & array processing functions by NumPy
+#   -- https://numpy.org
+#
+# Data manipulation & statistical operations by Pandas
+#   -- https://pandas.pydata.org
+#
+# Data division & preliminary modeling with SciKit-Learn
+#   -- https://scikit-learn.org
+#
+# Plotting & visualization tools by MatPlotLib
+#   -- https://matplotlib.org
+#
+# Advanced machine & statistical learning methods by TensorFlow and Keras
+#   -- https://www.tensorflow.org
+#   -- https://keras.io
+#
+# Significant use was made of the official API documentation and user
+# guides of each of these external packages, and the authors have our
+# thanks.  Unless otherwise noted, no code was directly copied from an
+# outside source, and any resemblance to such code here is unintentional.
+
 import os
 import numpy as np
 import pandas as pd
