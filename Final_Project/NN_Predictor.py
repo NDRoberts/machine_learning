@@ -55,7 +55,8 @@ class NN_Predictor:
 
     def crop_and_regularize(self):
         ''' Exclude data irrelevant to this operation; also create
-            standardized versions of the data I guess?  Not using them yet. '''
+            standardized versions of the data I guess?  Not using them yet,
+            TBD if this is a good idea. '''
         drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
                      "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
                      "invalcode"]

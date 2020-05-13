@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 import keras
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Dense
 from sklearn.model_selection import KFold, train_test_split
@@ -21,8 +22,22 @@ def loadData():
     dpath = os.getcwd() + cwpath
 
     print("Loading Data ...")
-    data = np.array(pd.read_csv(dpath))
+    data = pd.read_csv(dpath)
 
+    return data
+
+
+def cropData(data):
+    ''' Extract only relevant columns, and only rows for which relevant
+        data is complete '''
+    drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
+                     "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
+                     "invalcode"]
+    data.drop(columns=drop_cols, inplace=True)
+    data = data.applymap(lambda x: np.NaN if x == -9 else x)
+    data = data.loc[:, ['NO3', 'SO4', 'Cl', 'NH4']]
+    data = data.query('NO3 != "NaN" & SO4 != "NaN"'
+                        + '& Cl != "NaN" & NH4 != "NaN"')
     return data
 
 
@@ -74,13 +89,14 @@ def predictions(tModel, xTest, yTest):
         print("Predicted value: " + yPred[i] + "\n")
 
 def plotit(xdata, *ydata):
-    ''' Shorthand method to plot multiple lines with shared X data '''
+    ''' Shorthand method to plot multiple data sets with shared X values
+        (e.g. true y vs predicted y) '''
     for bit in ydata:
         plt.plot(xdata, bit, alpha=0.3)
     plt.show()
 
 
 if __name__ == '__main__':
-    data = loadData()
+    data = splitData(cropData(loadData()))
     (trainedModel, xTest, yTest) = trainModel(data)
     predictions(trainedModel, xTest, yTest)
