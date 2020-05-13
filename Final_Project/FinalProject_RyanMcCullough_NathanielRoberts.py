@@ -13,6 +13,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
+from sklearn.preprocessing import StandardScaler
 
 
 def loadData():
@@ -21,7 +22,7 @@ def loadData():
     dpath = os.getcwd() + cwpath
 
     print("Loading Data ...")
-    data = np.array(pd.read_csv(dpath))
+    data = pd.read_csv(dpath)
 
     return data
 
@@ -29,8 +30,12 @@ def loadData():
 def splitData(data, fold=0):
     ''' Divide data into Testing, Validation, and Training segments or,
         if a fold value is provided, into k cross-validation folds '''
-    X = data.iloc[:, :-1]
-    y = data.iloc[:, -1:]
+    data = crop_and_regularize(data)
+    print("Here")
+    print(data)
+    data = np.array(data)
+    X = data[:, :-1]
+    y = data[:, -1:]
     if fold > 0:
         kfolds = KFold(n_splits=fold, shuffle=True)
         folded_data = []
@@ -51,19 +56,39 @@ def splitData(data, fold=0):
 def trainModel(data):
     ''' Construct and train the artificial neural network model '''
     model = Sequential()
-    model.add(Dense(15, input_dim=3, activation='relu'))
+    model.add(Dense(15, activation='relu', input_shape=(3,)))
     model.add(Dense(12, activation='relu'))
     model.add(Dense(9, activation='relu'))
     model.add(Dense(6, activation='relu'))
     model.add(Dense(3, activation='relu'))
     model.add(Dense(1, activation='softmax'))
     model.compile(optimizer='adagrad', loss='categorical_crossentropy')
+    
 
     (xTest, xTrain, xVal, yTest, yTrain, yVal) = splitData(data)
+    print(xTrain.shape)
+    
+    print(model.summary())
 
     trained = model.fit(xTrain, yTrain)
 
     return trained, xTest, yTest
+
+def crop_and_regularize(data):
+        ''' Exclude data irrelevant to this operation; also create
+            standardized versions of the data I guess?  Not using them yet. '''
+        drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
+                     "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
+                     "invalcode"]
+        data.drop(columns=drop_cols, inplace=True)
+        data = data.applymap(lambda x: np.NaN if x == -9 else x)
+        data = data.loc[:, ['NO3', 'SO4', 'Cl', 'NH4']]
+        data = data.query('NO3 != "NaN" & SO4 != "NaN"'
+                                    + '& Cl != "NaN" & NH4 != "NaN"')
+        scaler = StandardScaler()
+        scaler.fit(np.array(data))
+        std_data = pd.DataFrame(scaler.transform(data))
+        return std_data
 
 
 def predictions(tModel, xTest, yTest):
