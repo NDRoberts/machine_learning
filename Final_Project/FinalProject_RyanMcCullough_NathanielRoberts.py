@@ -128,7 +128,7 @@ def fullPlot(X_data, y_true, y_pred):
     for n in range(3):
         ploc = 130 + (n + 1)
         plt.subplot(ploc)
-        plt.xlabel(elem[n])
+        plt.xlabel(f"{elem[n]} (G/m^2)")
         plt.plot(X_data[:, n], y_true, base[n], alpha=0.3,
                  label=f"NH4 relative to {elem[n]} (observed)")
         plt.plot(X_data[:, n], y_pred, 'xk', alpha=0.3,
