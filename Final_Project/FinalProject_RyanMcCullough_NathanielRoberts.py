@@ -33,6 +33,8 @@ import pandas as pd
 import keras
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.layers.advanced_activations import LeakyReLU
+from keras.callbacks import EarlyStopping
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
 
@@ -49,10 +51,10 @@ def loadData():
 def cropData(data):
         ''' Exclude data irrelevant to this operation, as well as entries
             for which relevant data is incomplete '''
-        drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
-                     "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
-                     "invalcode"]
-        data.drop(columns=drop_cols, inplace=True)
+        # drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
+        #              "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
+        #              "invalcode"]
+        # data.drop(columns=drop_cols, inplace=True)
         data = data.applymap(lambda x: np.NaN if x == -9 else x)
         data = data.loc[:, ['NO3', 'SO4', 'Cl', 'NH4']]
         data = data.query('NO3 != "NaN" & SO4 != "NaN" &'
@@ -87,23 +89,26 @@ def splitData(data, fold=0):
 def trainModel(data):
     ''' Construct and train the artificial neural network model '''
     (xTest, xTrain, xVal, yTrain, yTest, yVal) = splitData(data)
-
+    halt = EarlyStopping(monitor='val_loss', verbose=1, patience=5)
+    larry = LeakyReLU()
     model = Sequential()
-    model.add(Dense(15, activation='linear', input_shape=(3,)))
-    model.add(Dense(12, activation='linear'))
-    model.add(Dense(9, activation='linear'))
-    model.add(Dense(6, activation='linear'))
-    model.add(Dense(3, activation='linear'))
-    model.add(Dense(1, activation='linear'))
+    model.add(Dense(15, activation=larry, input_shape=(3,),
+                    kernel_constraint='non_neg'))
+    model.add(Dense(12, activation=larry, kernel_constraint='non_neg'))
+    model.add(Dense(9, activation=larry, kernel_constraint='non_neg'))
+    model.add(Dense(6, activation=larry, kernel_constraint='non_neg'))
+    model.add(Dense(3, activation=larry, kernel_constraint='non_neg'))
+    model.add(Dense(1, activation=larry, kernel_constraint='non_neg'))
     model.compile(optimizer='adagrad',
                   loss='mean_squared_logarithmic_error',
                   metrics=['mean_squared_error', 'mean_absolute_error'])
     
     keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
 
-    history = model.fit(xTrain, yTrain, epochs=100, validation_data=(xVal, yVal))
+    history = model.fit(xTrain, yTrain, epochs=100,
+                        validation_data=(xVal, yVal), callbacks=[halt])
     
-    yPred = np.array(model.predict(xTest))
+    yPred = np.array(np.abs(model.predict(xTest)))
     # eval = model.evaluate(xTest, yTest, return_dict=True)
     # print("Overall loss:", eval['mean_squared_logarithmic_error'])
     # print("Overall MSE:", eval['mean_squared_error'])
@@ -134,9 +139,11 @@ def fullPlot(X_data, y_true, y_pred):
 def historyPlot(hist):
     plt.figure(figsize=(6, 6))
     plt.suptitle("Progression of Error Metrics")
+    plt.xlabel("Training Epoch")
     plt.plot(hist.epoch, hist.history['loss'], label='Mean Squared Logarithmic Error')
     plt.plot(hist.epoch, hist.history['mean_squared_error'], label='Mean Squared Error')
     plt.plot(hist.epoch, hist.history['mean_absolute_error'], label='Mean Absolute Error')
+    plt.xticks(np.arange(0, len(hist.epoch), step=(len(hist.epoch) // 5)))
     plt.legend()
     plt.savefig("./loss_hist.png", format='png')
     plt.show()
