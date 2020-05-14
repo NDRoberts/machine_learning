@@ -63,12 +63,10 @@ def cropData(data):
 def splitData(data, fold=0):
     ''' Divide data into Testing, Validation, and Training segments or,
         if a fold value is provided, into k cross-validation folds '''
-    # data = cropData(data)
     data = np.array(data)
     X = data[:, :-1]
     y = data[:, -1:]
     y = np.ravel(y)
-    # y = np.reshape(y, (1447,1))
     if fold > 0:
         kfolds = KFold(n_splits=fold, shuffle=True)
         folded_data = []
@@ -97,27 +95,22 @@ def trainModel(data):
     model.add(Dense(6, activation='linear'))
     model.add(Dense(3, activation='linear'))
     model.add(Dense(1, activation='linear'))
-    model.compile(optimizer='adagrad', loss='mean_squared_logarithmic_error')
+    model.compile(optimizer='adagrad',
+                  loss='mean_squared_logarithmic_error',
+                  metrics=['mean_squared_error', 'mean_absolute_error'])
     
     keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
 
-    history = model.fit(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
+    history = model.fit(xTrain, yTrain, epochs=100, validation_data=(xVal, yVal))
     
     yPred = np.array(model.predict(xTest))
-    eval = model.evaluate(xTest, yTest, batch_size=128)
-    print("Overall loss:", eval)
+    # eval = model.evaluate(xTest, yTest, return_dict=True)
+    # print("Overall loss:", eval['mean_squared_logarithmic_error'])
+    # print("Overall MSE:", eval['mean_squared_error'])
+    # print("Overall MAE:", eval['mean_absolute_error'])
     print(model.summary())
-    
-    '''
-    for i in range(len(yPred)):
-        print("Actual value: ")
-        print(yTest[i][0])
-        print("\n")
-        print("Predicted value: ") 
-        print(yPred[i])
-        print("\n")'''
 
-    return (model, xTest, yTest, yPred)
+    return (model, history, xTest, yTest, yPred)
 
 
 def fullPlot(X_data, y_true, y_pred):
@@ -138,7 +131,19 @@ def fullPlot(X_data, y_true, y_pred):
     plt.show()
 
 
+def historyPlot(hist):
+    plt.figure(figsize=(6, 6))
+    plt.suptitle("Progression of Error Metrics")
+    plt.plot(hist.epoch, hist.history['loss'], label='Mean Squared Logarithmic Error')
+    plt.plot(hist.epoch, hist.history['mean_squared_error'], label='Mean Squared Error')
+    plt.plot(hist.epoch, hist.history['mean_absolute_error'], label='Mean Absolute Error')
+    plt.legend()
+    plt.savefig("./loss_hist.png", format='png')
+    plt.show()
+
+
 if __name__ == '__main__':
     data = cropData(loadData())
-    (trainedModel, xTest, yTest, yPred) = trainModel(data)
+    (trainedModel, history, xTest, yTest, yPred) = trainModel(data)
     fullPlot(xTest, yTest, yPred)
+    historyPlot(history)
