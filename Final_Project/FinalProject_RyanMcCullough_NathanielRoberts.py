@@ -11,13 +11,12 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
 import kerastuner as kt
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
 
 
-class DiaperModel(kt.HyperModel):
+class MyperHodel(kt.HyperModel):
 
     def __init__(self):
         pass
@@ -26,7 +25,7 @@ class DiaperModel(kt.HyperModel):
         model = tf.keras.Sequential()
         for k in range(hyparams.Int('layers', 2, 10)):
             model.add(tf.keras.layers.Dense(
-                units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
+                units=hyparams.Int('units_' + str(k), min_value=10, max_value=100, step=10),
                 activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])))
         model.compile(
             optimizer='adadelta',
@@ -61,12 +60,10 @@ def cropData(data):
 def splitData(data, fold=0):
     ''' Divide data into Testing, Validation, and Training segments or,
         if a fold value is provided, into k cross-validation folds '''
-    # data = cropData(data)
     data = np.array(data)
     X = data[:, :-1]
     y = data[:, -1:]
     y = np.ravel(y)
-    # y = np.reshape(y, (1447,1))
     if fold > 0:
         kfolds = KFold(n_splits=fold, shuffle=True)
         folded_data = []
@@ -99,7 +96,7 @@ def trainModel(data):
     
     keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
 
-    history = model.fit(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
+    model.fit(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
     
     yPred = np.array(model.predict(xTest))
     eval = model.evaluate(xTest, yTest, batch_size=128)
@@ -134,17 +131,17 @@ def trainModel(data):
 
 
 def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
-    model = DiaperModel()
+    model = MyperHodel()
     tuner = kt.tuners.Hyperband(
         hypermodel=model,
         objective='mean_squared_error',
-        max_epochs=10,
+        max_epochs=20,
         factor=2,
-        hyperband_iterations=3,
+        hyperband_iterations=10,
         hyperparameters=hyparams,
         project_name='Final'
     )
-    tuner.search(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
+    tuner.search(xTrain, yTrain, epochs=20, validation_data=(xVal, yVal))
     tuner.results_summary()
     return tuner.get_best_models()[0]
 
@@ -170,14 +167,14 @@ def fullPlot(X_data, y_true, y_pred):
 if __name__ == '__main__':
     data = cropData(loadData())
     xTest, xTrain, xVal, yTrain, yTest, yVal = splitData(data)
-    # (trainedModel, xTest, yTest, yPred) = trainModel(data)
-    # fullPlot(xTest, yTest, yPred)
+    (trainedModel, xTest, yTest, yPred) = trainModel(data)
+    fullPlot(xTest, yTest, yPred)
     hyparams = kt.HyperParameters()
     hmodel = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
     hmodel.fit(xTrain, yTrain)
     hyperPreds = hmodel.predict(xTest)
     print("The predictions coming back have shape", hyperPreds.shape)
-    heval = hmodel.evaluate(xTest, yTest, batch_size=128)
+    heval = hmodel.evaluate(xTest, yTest, batch_size=64)
     print("Tuned mean squared error:", heval)
     print(hmodel.summary())
     fullPlot(xTest, yTest, hyperPreds)
