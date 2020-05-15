@@ -30,11 +30,11 @@ Created on Fri May  1 13:49:32 2020
 import os
 import numpy as np
 import pandas as pd
-import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers.advanced_activations import LeakyReLU
 from keras.callbacks import EarlyStopping
+from keras.utils import plot_model
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
 
@@ -51,10 +51,6 @@ def loadData():
 def cropData(data):
         ''' Exclude data irrelevant to this operation, as well as entries
             for which relevant data is incomplete '''
-        # drop_cols = ["flagCa", "flagMg", "flagK", "flagNa", "flagNH4",
-        #              "flagNO3", "flagCl", "flagSO4", "flagBr", "valcode",
-        #              "invalcode"]
-        # data.drop(columns=drop_cols, inplace=True)
         data = data.applymap(lambda x: np.NaN if x == -9 else x)
         data = data.loc[:, ['NO3', 'SO4', 'Cl', 'NH4']]
         data = data.query('NO3 != "NaN" & SO4 != "NaN" &'
@@ -103,16 +99,10 @@ def trainModel(data):
                   loss='mean_squared_logarithmic_error',
                   metrics=['mean_squared_error', 'mean_absolute_error'])
     
-    keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
-
+    plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
     history = model.fit(xTrain, yTrain, epochs=100,
                         validation_data=(xVal, yVal), callbacks=[halt])
-    
     yPred = np.array(np.abs(model.predict(xTest)))
-    # eval = model.evaluate(xTest, yTest, return_dict=True)
-    # print("Overall loss:", eval['mean_squared_logarithmic_error'])
-    # print("Overall MSE:", eval['mean_squared_error'])
-    # print("Overall MAE:", eval['mean_absolute_error'])
     print(model.summary())
 
     return (model, history, xTest, yTest, yPred)
@@ -139,12 +129,12 @@ def fullPlot(X_data, y_true, y_pred):
 def historyPlot(hist):
     plt.figure(figsize=(6, 6))
     plt.suptitle("Progression of Error Metrics")
-    plt.xlabel("Training Epoch")
+    plt.xlabel(f"Training Epoch (out of {len(hist.epoch)})")
     plt.plot(hist.epoch, hist.history['loss'], label='Mean Squared Logarithmic Error')
     plt.plot(hist.epoch, hist.history['mean_squared_error'], label='Mean Squared Error')
     plt.plot(hist.epoch, hist.history['mean_absolute_error'], label='Mean Absolute Error')
     plt.xticks(np.arange(0, len(hist.epoch), step=(len(hist.epoch) // 5)))
-    plt.legend()
+    plt.legend(shadow=True)
     plt.savefig("./loss_hist.png", format='png')
     plt.show()
 

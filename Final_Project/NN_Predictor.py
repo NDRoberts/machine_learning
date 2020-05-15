@@ -102,6 +102,7 @@ class NN_Predictor:
 
     def plotz(self):
         ''' Make and plot predictions '''
+        plt.figure(figsize=(16, 9))
         total_error = 0
         rem_plts = [231, 232, 233, 234, 235, 236]
         for fold in self.folded_data:
@@ -112,11 +113,12 @@ class NN_Predictor:
             plt.plot(fold["test_X"], pred, 'go', alpha=0.3)
             rem_plts = rem_plts[1:]
             mse = mean_squared_error(fold["test_y"], pred)
-            plt.text(0, 0, s=f"MSE = {mse}")
+            plt.text(5, 0, s=f"MSE = {mse}")
             total_error += mse
         # plt.subplot(233)
         # plt.plot(self.X, self.y, 'ro', alpha = 0.25)
         # plt.plot(self.X, avg_preds, 'g^', alpha = 0.5)
+        plt.savefig("./skl-predictions.png", format='png')
         plt.show()
         print("Average MSE:", total_error / 5)
 
