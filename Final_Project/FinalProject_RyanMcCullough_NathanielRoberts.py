@@ -9,8 +9,9 @@ import os
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow import keras
+# from tensorflow import keras
 from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
 import kerastuner as kt
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
@@ -18,13 +19,13 @@ from matplotlib import pyplot as plt
 
 class MyperHodel(kt.HyperModel):
 
-    def __init__(self):
-        pass
+    # def __init__(self, name=None, tunable=True):
+    #     pass
 
     def build(self, hyparams):
-        model = tf.keras.Sequential()
+        model = Sequential()
         for k in range(hyparams.Int('layers', 2, 10)):
-            model.add(tf.keras.layers.Dense(
+            model.add(Dense(
                 units=hyparams.Int('units_' + str(k), min_value=10, max_value=100, step=10),
                 activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])))
         model.compile(
@@ -94,7 +95,7 @@ def trainModel(data):
     model.add(Dense(1, activation='relu'))
     model.compile(optimizer='adagrad', loss='mean_squared_logarithmic_error')
     
-    keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
+    tf.keras.utils.plot_model(model, to_file="./ModelStruct.png", show_shapes=True)
 
     model.fit(xTrain, yTrain, epochs=10, validation_data=(xVal, yVal))
     
@@ -115,19 +116,22 @@ def trainModel(data):
     return (model, xTest, yTest, yPred)
 
 
-# def hyper_build(hyparams):
-#     hmodel = keras.Sequential(name='TunedModel')
-#     for k in range(hyparams.Int('layers', 2, 10)):
-#         hmodel.add(keras.layers.Dense(
-#             units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
-#             activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])
-#         ))
-#     hmodel.compile(
-#         optimizer='adadelta',
-#         loss='mean_squared_error',
-#         metrics='mean_squared_error'
-#     )
-#     return hmodel
+def hyper_build(hyparams):
+    hmodel = Sequential(name='TunedModel')
+    # for k in range(hyparams.Int('layers', 2, 10)):
+    hmodel.add(tf.keras.layers.Input(shape=(3,)))
+    for k in range(1, 6):
+        hmodel.add(Dense(
+            name=f"Dense Layer {k}",
+            units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
+            activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])
+        ))
+    hmodel.compile(
+        optimizer='adadelta',
+        loss='mean_squared_error',
+        metrics=['mean_squared_error']
+    )
+    return hmodel
 
 
 def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
@@ -164,17 +168,47 @@ def fullPlot(X_data, y_true, y_pred):
     plt.show()
 
 
+def build_one_layer(hyparams):
+    model = Sequential()
+    model.add(tf.keras.layers.Input(shape=(3,)))
+    model.add(Dense(
+        units=hyparams.Int('units', min_value=3, max_value=36, step=3),
+        activation='relu'))
+    model.add(Dense(10, activation='softmax'))
+    model.compile(
+        optimizer=tf.keras.optimizers.Adagrad(
+            hyparams.Choice('learning_rate', values=[1e-2, 1e-3, 1e-4])),
+        loss='logcosh',
+        metrics=['mean_squared_error'])
+    return model
+
+
 if __name__ == '__main__':
     data = cropData(loadData())
     xTest, xTrain, xVal, yTrain, yTest, yVal = splitData(data)
-    (trainedModel, xTest, yTest, yPred) = trainModel(data)
-    fullPlot(xTest, yTest, yPred)
+    # (trainedModel, xTest, yTest, yPred) = trainModel(data)
+    # fullPlot(xTest, yTest, yPred)
     hyparams = kt.HyperParameters()
-    hmodel = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
-    hmodel.fit(xTrain, yTrain)
-    hyperPreds = hmodel.predict(xTest)
-    print("The predictions coming back have shape", hyperPreds.shape)
-    heval = hmodel.evaluate(xTest, yTest, batch_size=64)
-    print("Tuned mean squared error:", heval)
-    print(hmodel.summary())
-    fullPlot(xTest, yTest, hyperPreds)
+    rstuner = kt.tuners.RandomSearch(
+        hypermodel=build_one_layer,
+        objective='val_mean_squared_error',
+        max_trials=5,
+        executions_per_trial=3,
+        directory='tuner_data',
+        project_name='tunedmodel'
+    )
+    rstuner.search_space_summary()
+    rstuner.search(xTrain, yTrain, epochs=20, validation_data=(xVal, yVal))
+    top2 = rstuner.get_best_models(num_models=2)
+    prams = rstuner.get_best_hyperparameters()[0]
+    rstuner.results_summary()
+    print("Best 'units':", prams.get('units'),
+          "   Best 'learning_rate':", prams.get('learning_rate'))
+    # hmodel = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
+    # hmodel.fit(xTrain, yTrain)
+    # hyperPreds = hmodel.predict(xTest)
+    # print("The predictions coming back have shape", hyperPreds.shape)
+    # heval = hmodel.evaluate(xTest, yTest, batch_size=64)
+    # print("Tuned mean squared error:", heval)
+    # print(hmodel.summary())
+    # fullPlot(xTest, yTest, hyperPreds)
