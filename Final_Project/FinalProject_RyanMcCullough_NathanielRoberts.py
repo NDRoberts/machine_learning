@@ -9,30 +9,12 @@ import os
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-# from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.callbacks import EarlyStopping
 import kerastuner as kt
 from sklearn.model_selection import KFold, train_test_split
 from matplotlib import pyplot as plt
-
-
-class MyperHodel(kt.HyperModel):
-
-    # def __init__(self, name=None, tunable=True):
-    #     pass
-
-    def build(self, hyparams):
-        model = Sequential()
-        for k in range(hyparams.Int('layers', 2, 10)):
-            model.add(Dense(
-                units=hyparams.Int('units_' + str(k), min_value=10, max_value=100, step=10),
-                activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])))
-        model.compile(
-            optimizer='adadelta',
-            loss='mean_squared_error',
-            metrics='mean_squared_error')
-        return model
 
 
 def loadData():
@@ -118,34 +100,39 @@ def trainModel(data):
 
 def hyper_build(hyparams):
     hmodel = Sequential(name='TunedModel')
-    # for k in range(hyparams.Int('layers', 2, 10)):
     hmodel.add(tf.keras.layers.Input(shape=(3,)))
-    for k in range(1, 6):
+    for k in range(hyparams.Int('num_layers', 2, 20)):
         hmodel.add(Dense(
             name=f"Dense Layer {k}",
-            units=hyparams.Int('units_' + str(k), min_value=3, max_value=21, step=3),
+            units=hyparams.Int(name='units_'+str(k), min_value=3, max_value=36, step=3),
             activation=hyparams.Choice('activation_' + str(k), ['relu', 'tanh', 'linear'])
         ))
     hmodel.compile(
-        optimizer='adadelta',
-        loss='mean_squared_error',
+        optimizer=tf.keras.optimizers.Adadelta(
+            learning_rate=hyparams.Choice('learning_rate_'+str(k), [1.0, 0.1, 1e-2, 1e-3, 1e-4]),
+            rho=hyparams.Choice('decay_'+str(k), [0.90, 0.95, 0.98])
+        ), # 'adadelta',
+        loss=hyparams.Choice('loss_'+str(k), 
+                             ['mean_squared_error', 
+                              'mean_squared_logarithmic_error', 'logcosh']),
         metrics=['mean_squared_error']
     )
     return hmodel
 
 
 def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
-    model = MyperHodel()
     tuner = kt.tuners.Hyperband(
-        hypermodel=model,
-        objective='mean_squared_error',
-        max_epochs=20,
+        hypermodel=hyper_build,
+        objective='val_mean_squared_error',
+        max_epochs=100,
         factor=2,
         hyperband_iterations=10,
         hyperparameters=hyparams,
-        project_name='Final'
+        project_name='Final',
+        overwrite=True
     )
-    tuner.search(xTrain, yTrain, epochs=20, validation_data=(xVal, yVal))
+    halt = EarlyStopping(monitor='val_loss', verbose=1, patience=5)
+    tuner.search(xTrain, yTrain, epochs=100, validation_data=(xVal, yVal), callbacks=[halt])
     tuner.results_summary()
     return tuner.get_best_models()[0]
 

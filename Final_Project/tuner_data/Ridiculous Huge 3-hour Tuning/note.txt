@@ -1,0 +1,20 @@
+Note:  The massive hyperparameter tuning log in this folder took around 3 hours to produce on my home computer.  The specifications that produced it were as follows:
+
+Layers: range(2, 20)
+Units per layer: range(3, 36, step=3)
+Activation formula: ['relu', 'tanh', 'linear']
+Optimizer learning rate: [1.0, 0.1, 0.01, 0.001, 0.0001]
+Adadelta decay rate: [0.9, 0.95, 0.98]
+Loss function: [MSE, MSLE, Logcosh]
+tuner = kt.tuners.Hyperband(
+        hypermodel=hyper_build,
+        objective='val_mean_squared_error',
+        max_epochs=100,
+        factor=2,
+        hyperband_iterations=3,
+        hyperparameters=hyparams,
+        directory='tuner_data',
+        project_name='Final',
+        overwrite=True)
+
+Do not do this again.
