@@ -6,6 +6,7 @@
     Gradually adapting to be more data-agnostic, fewer hard-coded values.
     @author: Nathaniel Roberts '''
 
+import re
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -21,37 +22,41 @@ from matplotlib import pyplot as plt
 def loadData(to_load=None):
     ''' Read a .CSV file into memory and return it as a Pandas dataframe '''
     if to_load == None:
-        to_load = '/ne15.csv'
+        to_load = './ne15.csv'
     data = pd.read_csv(to_load)
     return data
 
 
 def request_targets(data):
-    ''' Specify target variables for regression analysis; if user declines to specify,
-        use existing project spec as defaults '''
+    ''' Specify target variables for regression analysis; if user declines to
+        specify, use existing project spec as defaults '''
     targets = [['NO3', 'SO4', 'Cl'], 'NH4']
-    specify = input("Would you like to specify dependent/independent variables? (Y/N)")
+    specify = input("Would you like to specify comparison variables? (Y/N)")
     if specify.lower() == 'y':
         satisfied = {'indep': False, 'dep': False}
         while not all(satisfied.values()):
             if not satisfied['indep']:
-                exp_list = input("Please list any number of explanatory (independent) variables by name, separated by commas(','):")
+                exp_list = input("Please list any number of explanatory", 
+                                 "(independent) variables by name,",
+                                 "separated by commas(','):")
                 if not exp_list:
                     print("You must specify at least one independent variable.")
                     continue
                 explanatories = exp_list.split(sep=',')
                 for v in explanatories:
                     if v not in data.columns:
-                        print(f"I'm sorry, but {v} is not the name of a variable in the provided data.")
+                        print(f"I'm sorry, but {v} is not the name of a",
+                               "variable in the provided data.")
                         continue
                 satisfied['indep']
                 targets[0] = explanatories
             if not satisfied['dep']:
-                explained = input("Now please specify one dependent variable by name:")
+                explained = input("Please specify one dependent variable by name:")
                 if not explained:
                     print("You must specify a dependent variable.")
                 if  explained not in data.columns:
-                    print(f"I'm sorry, but {explained} is not the name of a variable in the provided data.")
+                    print(f"I'm sorry, but {explained} is not the name of a",
+                           "variable in the provided data.")
                     continue
                 satisfied['dep']
                 targets[1] = explained
@@ -60,12 +65,12 @@ def request_targets(data):
 
 def cropData(data, var_set):
         ''' Exclude data irrelevant to this operation, as well as entries
-            for which relevant data is incomplete '''
+            for which relevant data is incomplete. 
+            Argument var_set should be a list of two items:
+            (1) A list of independent variables
+            (2) A single dependent variable '''
         data = data.applymap(lambda x: np.NaN if x == -9 else x)
-        # data = data.loc[:, ['NO3', 'SO4', 'Cl', 'NH4']]
-        # data = data.query('NO3 != "NaN" & SO4 != "NaN" &'
-        #                   + 'Cl != "NaN" & NH4 != "NaN"')
-        varbles = var_set[0].append(var_set[1])
+        varbles = var_set[0] + [var_set[1]]
         varnish = ""
         for v in var_set[0]:
             varnish = varnish + (f"{v} != 'NaN' &")
@@ -99,6 +104,7 @@ def splitData(data, fold=0):
 
 
 def hyper_build(hyparams):
+    ''' Construct & compile a tunable hypermodel with given param options '''
     hmodel = Sequential(name='TunedModel')
     hmodel.add(tf.keras.layers.Input(shape=(3,)))
     for k in range(hyparams.Int('num_layers', 2, 20)):
@@ -110,8 +116,9 @@ def hyper_build(hyparams):
     hmodel.add(Dense(name='bite_down', units=1, activation='linear'))
     hmodel.compile(
         optimizer=tf.keras.optimizers.Adadelta(
-            learning_rate=hyparams.Choice('learning_rate_'+str(k), [1.0, 0.1, 1e-2, 1e-3, 1e-4]),
-            rho=hyparams.Choice('decay_'+str(k), [0.90, 0.95, 0.98])),
+            learning_rate=hyparams.Choice('learning-rate_'+str(k),
+                                          [1.0, 0.1, 1e-2, 1e-3, 1e-4]),
+            rho=hyparams.Choice('rho_'+str(k), [0.90, 0.95, 0.98])),
         loss=hyparams.Choice('loss_'+str(k), 
                              ['mean_squared_error', 
                               'mean_squared_logarithmic_error', 'logcosh']),
@@ -123,7 +130,7 @@ def hyper_build(hyparams):
 def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
     ''' Given training and validation data, use Keras-Tuner to find best
         hyperparameters, and return a model with those hyperparameters '''
-    # Note to self: 10 Hyperband iterations is TOO MANY
+    # Note to self: 10 Hyperband iterations is maybe TOO MANY
     tuner = kt.tuners.Hyperband(
         hypermodel=hyper_build,
         objective='val_mean_squared_error',
@@ -133,7 +140,9 @@ def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
         hyperparameters=hyparams,
         directory='tuner_data',
         project_name='Final',
-        overwrite=True)
+        overwrite=False)
+    
+    # # Alternative RandomSearch tuner seems to run faster
     # tuner = kt.tuners.RandomSearch(
     #     hypermodel=hyper_build,
     #     objective='val_mean_squared_error',
@@ -144,18 +153,39 @@ def hyper_tune(hyparams, xTrain, yTrain, xVal, yVal):
     #     directory='tuner_data',
     #     project_name='the_actual',
     #     overwrite=True)
+    
     tuner.search_space_summary()
     halt = EarlyStopping(monitor='val_loss', verbose=1, patience=5)
-    tuner.search(xTrain, yTrain, epochs=100, validation_data=(xVal, yVal), callbacks=[halt])
+    tuner.search(xTrain, yTrain, epochs=100, validation_data=(xVal, yVal),
+                 callbacks=[halt])
     tuner.results_summary()
     # print(tuner.get_best_hyperparameters()[0].values)
-    return tuner.get_best_models()[0]
+    return (tuner.get_best_models()[0], tuner.get_best_hyperparameters()[0].values)
 
 
-def summarize_params(model):
-    ''' Print a table of the best hyperparameters found during tuning '''
-    for walu in model.values:
-        print(walu)
+def frame_params(prams):
+    ''' Convert a given dict of params into a Pandas dataframe 
+        (also print them, at least for now) '''
+    n = 0
+    model_parameters = {}
+    tuner_parameters = {}
+    for var_name in prams.keys():
+        if var_name == 'num_layers':
+            n = prams[var_name]
+        elif var_name[0:5] == 'tuner':
+            vn = var_name.split('/')
+            tuner_parameters[vn[0]] = prams[var_name]
+        else:
+            vn = var_name.split('_')
+            if vn[0] not in model_parameters:
+                model_parameters[vn[0]] = {}
+            model_parameters[vn[0]][vn[1]] = prams[var_name]
+    model_frame = pd.DataFrame.from_dict(model_parameters)
+    print("Number of hidden layers used:", n, '\n')
+    print("Model parameters (by layer):\n", model_frame, '\n')
+    print("Tuner parameters:")
+    for p in tuner_parameters.keys():
+        print(p, "=", tuner_parameters[p])
 
 
 def fullPlot(X_data, y_true, y_pred):
@@ -183,8 +213,9 @@ if __name__ == '__main__':
     data = cropData(data, request_targets(data))
     xTest, xTrain, xVal, yTrain, yTest, yVal = splitData(data)
     hyparams = kt.HyperParameters()
-    super_model = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
+    super_model, super_params = hyper_tune(hyparams, xTrain, yTrain, xVal, yVal)
     plot_model(super_model, to_file="./TunedModelStruct.png", show_shapes=True)
     super_preds = np.array(super_model.predict(xTest))
     fullPlot(xTest, yTest, super_preds)
     super_model.summary()
+    frame_params(super_params)
